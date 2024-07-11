@@ -1,54 +1,30 @@
 #!/usr/bin/python3
 """
-This fabfile distributes an archive to my web servers
+Fabric script based on the file 1-pack_web_static.py that distributes an
+archive to the web servers
 """
 
-import os
-from fabric.api import *
-from datetime import datetime
-
-
-# Set the host IP addresses for web-01 && web-02
-env.hosts = ['18.234.105.167', '100.25.222.179']
-env.user = "ubuntu"
-
-
-def do_pack():
-    """Create a tar gzipped archive of the directory web_static."""
-    # obtain the current date and time
-    now = datetime.now().strftime("%Y%m%d%H%M%S")
-
-    # Construct path where archive will be saved
-    archive_path = "versions/web_static_{}.tgz".format(now)
-
-    # use fabric function to create directory if it doesn't exist
-    local("mkdir -p versions")
-
-    # Use tar command to create a compresses archive
-    archived = local("tar -cvzf {} web_static".format(archive_path))
-
-    # Check archive Creation Status
-    if archived.return_code != 0:
-        return None
-    else:
-        return archive_path
+from fabric.api import put, run, env
+from os.path import exists
+env.hosts = ['18.206.207.103', '100.25.20.225']
 
 
 def do_deploy(archive_path):
-    '''use os module to check for valid file path'''
-    if os.path.exists(archive_path):
-        archive = archive_path.split('/')[1]
-        a_path = "/tmp/{}".format(archive)
-        folder = archive.split('.')[0]
-        f_path = "/data/web_static/releases/{}/".format(folder)
-
-        put(archive_path, a_path)
-        run("mkdir -p {}".format(f_path))
-        run("tar -xzf {} -C {}".format(a_path, f_path))
-        run("rm {}".format(a_path))
-        run("mv -f {}web_static/* {}".format(f_path, f_path))
-        run("rm -rf {}web_static".format(f_path))
-        run("rm -rf /data/web_static/current")
-        run("ln -s {} /data/web_static/current".format(f_path))
+    """distributes an archive to the web servers"""
+    if exists(archive_path) is False:
+        return False
+    try:
+        file_n = archive_path.split("/")[-1]
+        no_ext = file_n.split(".")[0]
+        path = "/data/web_static/releases/"
+        put(archive_path, '/tmp/')
+        run('mkdir -p {}{}/'.format(path, no_ext))
+        run('tar -xzf /tmp/{} -C {}{}/'.format(file_n, path, no_ext))
+        run('rm /tmp/{}'.format(file_n))
+        run('mv {0}{1}/web_static/* {0}{1}/'.format(path, no_ext))
+        run('rm -rf {}{}/web_static'.format(path, no_ext))
+        run('rm -rf /data/web_static/current')
+        run('ln -s {}{}/ /data/web_static/current'.format(path, no_ext))
         return True
-    return False
+    except:
+        return False
